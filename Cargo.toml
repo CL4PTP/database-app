@@ -1,0 +1,8 @@
+[package]
+name = "db_algos"
+version = "0.1.0"
+authors = ["Bence Meszaros <bence.me@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+indexmap = "1.0.2"
