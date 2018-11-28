@@ -1,7 +1,9 @@
 #![feature(self_struct_ctor)]
 #![feature(nll)]
+#![feature(type_ascription)]
 
-extern crate indexmap;
+// TODO: use bitsets instead of actual sets
+// extern crate fixedbitset;
 
 mod functional_dependencies {
     use std::collections::{BTreeSet, HashMap, HashSet};
@@ -121,6 +123,16 @@ mod functional_dependencies {
             &mut self.0
         }
     }
+    impl From<BTreeSet<Attribute>> for AttributeSet {
+        fn from(x: BTreeSet<Attribute>) -> Self {
+            Self(x)
+        }
+    }
+    impl Into<BTreeSet<Attribute>> for AttributeSet {
+        fn into(self) -> BTreeSet<Attribute> {
+            self.0
+        }
+    }
 
     #[derive(Debug, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
     pub struct Dependency {
@@ -130,10 +142,7 @@ mod functional_dependencies {
 
     impl Dependency {
         pub fn from_set_pair((l, r): (AttributeSet, AttributeSet)) -> Self {
-            Self {
-                left: l,
-                right: r,
-            }
+            Self { left: l, right: r }
         }
 
         pub fn from_simple_form(s: (&str, &str)) -> Self {
@@ -158,10 +167,26 @@ mod functional_dependencies {
         pub fn right_mut(&mut self) -> &mut AttributeSet {
             &mut self.right
         }
+
+        pub fn minimize(&self, deps: &DependencySet) -> Dependency {
+            let mut min = self.clone();
+
+            for attr in min.left().set().clone().into_iter() {
+                min.left_mut().remove(&attr);
+
+                if !min.left().closure(deps).is_superset(self.right()) {
+                    min.left_mut().insert(attr);
+                }
+            }
+
+            min
+        }
     }
 
     impl Into<(AttributeSet, AttributeSet)> for Dependency {
-        fn into(self) -> (AttributeSet, AttributeSet) { (self.left, self.right) }
+        fn into(self) -> (AttributeSet, AttributeSet) {
+            (self.left, self.right)
+        }
     }
 
     impl ::std::fmt::Display for Dependency {
@@ -180,6 +205,18 @@ mod functional_dependencies {
                     .map(|s| Dependency::from_simple_form(*s))
                     .collect(),
             )
+        }
+
+        pub fn effective_attributes(&self) -> AttributeSet {
+            self.clone()
+                .0
+                .into_iter()
+                .map(|d| d.into())
+                .map(|(l, r)| (l.into(), r.into()))
+                .map(|(l, r): (BTreeSet<_>, BTreeSet<_>)| l.into_iter().chain(r.into_iter()))
+                .flatten()
+                .collect::<BTreeSet<_>>()
+                .into()
         }
 
         // as seen in `CIS611_LectureNotes_8_MinimalCover.pdf`
@@ -201,7 +238,12 @@ mod functional_dependencies {
                     let v = union_map.entry(l).or_insert_with(|| r.clone());
                     **v = v.union(&r).cloned().collect::<BTreeSet<Attribute>>();
                 }
-                cover = Self(union_map.into_iter().map(Dependency::from_set_pair).collect());
+                cover = Self(
+                    union_map
+                        .into_iter()
+                        .map(Dependency::from_set_pair)
+                        .collect(),
+                );
 
                 let mut changed = false;
 
@@ -226,14 +268,10 @@ mod functional_dependencies {
                     }
 
                     // remove extraneous LHS attributes
-                    for attr in dep.left().set().clone().into_iter() {
-                        dep.right_mut().set_mut().remove(&attr);
-
-                        if !dep.left().closure(&cover).is_superset(dep.right()) {
-                            dep.left_mut().set_mut().insert(attr);
-                        } else {
-                            changed = true;
-                        }
+                    let min = dep.minimize(&cover);
+                    if min != dep {
+                        dep = min;
+                        changed = true;
                     }
 
                     cover.insert(dep);
@@ -247,9 +285,32 @@ mod functional_dependencies {
             cover
         }
 
-        // need to get it below O(2^n) worst case
-        pub fn candidate_keys(&self) -> Vec<Dependency> {
-            unimplemented!()
+        pub fn candidate_keys(&self, attributes: &AttributeSet) -> Vec<AttributeSet> {
+            let mut keys = Vec::new();
+
+            keys.push((Dependency::from_set_pair((attributes.clone(), attributes.clone()))
+                .minimize(self)
+                .into(): (_, _))
+                .0);
+
+            let mut n = 1;
+            let mut i = 0;
+
+            while i < n {
+                for dep in self.iter() {
+                    let new_key = AttributeSet::from(dep.left().set() | &(keys[i].set() - dep.right().set()));
+
+                    if !keys.iter().any(|k| k.is_subset(&new_key)) {
+                        keys.push(new_key);
+
+                        n += 1;
+                    }
+                }
+
+                i += 1;
+            }
+
+            keys
         }
     }
 
@@ -292,6 +353,7 @@ fn main() {
     ]);
 
     println!("fd: {}", fd);
+    println!("attributes: {}", fd.effective_attributes());
 
     let attr = functional_dependencies::AttributeSet::from_simple_form("A");
 
@@ -299,4 +361,9 @@ fn main() {
     println!("closure: {}", attr.closure(&fd));
 
     println!("minimal cover: {}", fd.minimal_cover());
+
+    println!("key closures:");
+    for key in fd.candidate_keys(&fd.effective_attributes()) {
+        println!("{} -> {}", key, key.closure(&fd));
+    }
 }
