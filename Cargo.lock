@@ -57,7 +57,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "db_algos"
+name = "dbapp"
 version = "0.1.0"
 dependencies = [
  "cfg-if 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",

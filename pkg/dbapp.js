@@ -1,5 +1,5 @@
 /* tslint:disable */
-import * as wasm from './db_algos_bg';
+import * as wasm from './dbapp_bg';
 
 let cachedTextEncoder = new TextEncoder('utf-8');
 

@@ -1,6 +1,6 @@
-extern crate db_algos;
+extern crate dbapp;
 
-use db_algos::functional_dependencies::*;
+use dbapp::functional_dependencies::*;
 
 fn main() {
     let fd: DependencySet = "

@@ -1,15 +1,15 @@
 {
-  "name": "db_algos",
+  "name": "dbapp",
   "collaborators": [
     "Bence Meszaros <bence.me@gmail.com>"
   ],
   "version": "0.1.0",
   "files": [
-    "db_algos_bg.wasm",
-    "db_algos.js",
-    "db_algos.d.ts"
+    "dbapp_bg.wasm",
+    "dbapp.js",
+    "dbapp.d.ts"
   ],
-  "module": "db_algos.js",
-  "types": "db_algos.d.ts",
+  "module": "dbapp.js",
+  "types": "dbapp.d.ts",
   "sideEffects": "false"
 }

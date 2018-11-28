@@ -1,5 +1,5 @@
 [package]
-name = "db_algos"
+name = "dbapp"
 version = "0.1.0"
 authors = ["Bence Meszaros <bence.me@gmail.com>"]
 
